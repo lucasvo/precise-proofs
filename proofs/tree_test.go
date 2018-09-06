@@ -571,6 +571,53 @@ func TestTree_AddLeaves_hashed(t *testing.T) {
 	assert.EqualError(t, err, "tree already filled")
 }
 
+func TestTree_AddLeaves_TwoLeafTree(t *testing.T) {
+	// Leaf A: Hashed -- Leaf B: Hashed
+	tree := NewDocumentTree(TreeOptions{EnableHashSorting: true, Hash: sha256.New()})
+	hashLeafA := sha256.Sum256([]byte("leafA"))
+	err := tree.AddLeaf(LeafNode{Hash: hashLeafA[:], Property: "LeafA", Hashed: true})
+	assert.Nil(t, err)
+	err = tree.AddLeaf(LeafNode{Hash: hashLeafA[:], Property: "LeafB", Hashed: true})
+	assert.Nil(t, err)
+	err = tree.Generate()
+	assert.Nil(t, err)
+	assert.NotEqual(t, hashLeafA[:], tree.RootHash())
+
+	// Leaf A: Regular -- Leaf B: Hashed
+	tree = NewDocumentTree(TreeOptions{EnableHashSorting: true, Hash: sha256.New()})
+	err = tree.AddLeaf(LeafNode{Property: "LeafA", Salt: make([]byte, 32), Value: "1"})
+	assert.Nil(t, err)
+	err = tree.AddLeaf(LeafNode{Hash: hashLeafA[:], Property: "LeafB", Hashed: true})
+	assert.Nil(t, err)
+	err = tree.Generate()
+	assert.Nil(t, err)
+	assert.NotEqual(t, hashLeafA[:], tree.RootHash())
+
+	// Leaf A: Hashed -- Leaf B: Regular (hashed)
+	tree = NewDocumentTree(TreeOptions{EnableHashSorting: true, Hash: sha256.New()})
+	err = tree.AddLeaf(LeafNode{Hash: hashLeafA[:], Property: "LeafA", Hashed: true})
+	assert.Nil(t, err)
+	leafB := LeafNode{Property: "LeafB", Salt: make([]byte, 32), Value: "1"}
+	leafB.HashNode(sha256.New())
+	err = tree.AddLeaf(leafB)
+	assert.Nil(t, err)
+	err = tree.Generate()
+	assert.Nil(t, err)
+	assert.NotEqual(t, hashLeafA[:], tree.RootHash())
+
+	// Leaf A: Hashed -- Leaf B: Regular (no call to HashNode)
+	tree = NewDocumentTree(TreeOptions{EnableHashSorting: true, Hash: sha256.New()})
+	err = tree.AddLeaf(LeafNode{Hash: hashLeafA[:], Property: "LeafA", Hashed: true})
+	assert.Nil(t, err)
+	leafB = LeafNode{Property: "LeafB", Salt: make([]byte, 32), Value: "1"}
+	err = tree.AddLeaf(leafB)
+	assert.Nil(t, err)
+	err = tree.Generate()
+	assert.Nil(t, err)
+	assert.NotEqual(t, hashLeafA[:], tree.RootHash())
+
+}
+
 func TestTree_AddLeavesFromDocument_twice(t *testing.T) {
 	doctree := NewDocumentTree(TreeOptions{Hash: sha256Hash})
 	err := doctree.AddLeavesFromDocument(&documentspb.LongDocumentExample, &documentspb.SaltedLongDocumentExample)
